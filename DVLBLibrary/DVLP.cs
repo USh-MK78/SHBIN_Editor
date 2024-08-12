@@ -14,38 +14,18 @@ namespace DVLBLibrary
     public class DVLP
     {
         public char[] DVLP_Header { get; set; } //char(0x4)
-        public byte[] UnkByte1 { get; set; } //0x4
-        public int UnknownDataOffset0 { get; set; } //From : DVLP Header
-        public int DVLP_UnknownDataCount { get; set; }
-
-        public List<UnknownData> UnknownDataList { get; set; }
-        public class UnknownData
+        public byte[] Version { get; set; } //0x4
+        public int CompiledShaderBinaryBlobOffset { get; set; } //From : DVLP Header
+        public int CompiledShaderBinaryBlobCount { get; set; }
+        public List<CompiledShaderBinaryBlob> CompiledShaderBinaryBlobList { get; set; }
+        public class CompiledShaderBinaryBlob
         {
             public byte Data0 { get; set; }
             public byte Data1 { get; set; }
             public byte Data2 { get; set; }
             public byte Data3 { get; set; }
 
-            public Color ColorRGBA
-            {
-                get
-                {
-                    return GetColor();
-                }
-                set
-                {
-                    Data3 = value.A;
-                    Data2 = value.R;
-                    Data1 = value.G;
-                    Data0 = value.B;
-                }
-            }
-            public Color GetColor()
-            {
-                return Color.FromArgb(Data3, Data2, Data1, Data0);
-            }
-
-            public void ReadUnknowndata(BinaryReader br)
+            public void ReadCompiledShaderBinaryBlob(BinaryReader br)
             {
                 Data0 = br.ReadByte();
                 Data1 = br.ReadByte();
@@ -53,7 +33,7 @@ namespace DVLBLibrary
                 Data3 = br.ReadByte();
             }
 
-            public UnknownData(byte d0, byte d1, byte d2, byte d3)
+            public CompiledShaderBinaryBlob(byte d0, byte d1, byte d2, byte d3)
             {
                 Data0 = d0;
                 Data1 = d1;
@@ -61,19 +41,24 @@ namespace DVLBLibrary
                 Data3 = d3;
             }
 
-            public UnknownData()
+            public CompiledShaderBinaryBlob()
             {
                 Data0 = 0;
                 Data1 = 0;
                 Data2 = 0;
                 Data3 = 0;
             }
+
+            public override string ToString()
+            {
+                return "CompiledShaderBinaryBlob";
+            }
         }
 
-        public int TableDataOffset { get; set; }
-        public int TableDataCount { get; set; }
-        public List<Table> Tables { get; set; }
-        public class Table
+        public int OperandDescriptorTableOffset { get; set; }
+        public int OperandDescriptorTableCount { get; set; }
+        public List<OperandDescriptorTable> OperandDescriptorTables { get; set; }
+        public class OperandDescriptorTable
         {
             public UnknownByteData Unknown_ByteData { get; set; }
             public class UnknownByteData
@@ -83,7 +68,7 @@ namespace DVLBLibrary
                 public byte Data2 { get; set; }
                 public byte Data3 { get; set; }
 
-                public void ReadUnknowndata(BinaryReader br)
+                public void ReadUnknownData(BinaryReader br)
                 {
                     Data0 = br.ReadByte();
                     Data1 = br.ReadByte();
@@ -100,19 +85,24 @@ namespace DVLBLibrary
                 }
             }
 
-            public int UnknownData0 { get; set; }
+            public int UnknownData0 { get; set; } //BitData (?)
 
             public void ReadTableData(BinaryReader br, byte[] BOM)
             {
                 EndianConvert endianConvert = new EndianConvert(BOM);
-                Unknown_ByteData.ReadUnknowndata(br);
+                Unknown_ByteData.ReadUnknownData(br);
                 UnknownData0 = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
             }
 
-            public Table()
+            public OperandDescriptorTable()
             {
                 Unknown_ByteData = new UnknownByteData(0x00, 0x00, 0x00, 0x00);
                 UnknownData0 = 0;
+            }
+
+            public override string ToString()
+            {
+                return "OperandDescriptorTable";
             }
         }
 
@@ -281,46 +271,46 @@ namespace DVLBLibrary
             DVLP_Header = br.ReadChars(4);
             if (new string(DVLP_Header) != "DVLP") throw new Exception("不明なフォーマットです");
             EndianConvert endianConvert = new EndianConvert(BOM);
-            UnkByte1 = endianConvert.Convert(br.ReadBytes(4));
+            Version = endianConvert.Convert(br.ReadBytes(4));
 
-            UnknownDataOffset0 = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
-            DVLP_UnknownDataCount = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
-            if (UnknownDataOffset0 != 0)
+            CompiledShaderBinaryBlobOffset = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
+            CompiledShaderBinaryBlobCount = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
+            if (CompiledShaderBinaryBlobOffset != 0)
             {
                 long CurrentPos = br.BaseStream.Position;
 
                 //Move DVLP Header
                 br.BaseStream.Position = DVLPPos;
 
-                br.BaseStream.Seek(UnknownDataOffset0, SeekOrigin.Current);
+                br.BaseStream.Seek(CompiledShaderBinaryBlobOffset, SeekOrigin.Current);
 
-                for (int i = 0; i < DVLP_UnknownDataCount; i++)
+                for (int i = 0; i < CompiledShaderBinaryBlobCount; i++)
                 {
-                    UnknownData unknownData = new UnknownData();
-                    unknownData.ReadUnknowndata(br);
-                    UnknownDataList.Add(unknownData);
+                    CompiledShaderBinaryBlob compiledShaderBinaryBlob = new CompiledShaderBinaryBlob();
+                    compiledShaderBinaryBlob.ReadCompiledShaderBinaryBlob(br);
+                    CompiledShaderBinaryBlobList.Add(compiledShaderBinaryBlob);
                 }
 
                 //Leave Position
                 br.BaseStream.Position = CurrentPos;
             }
 
-            TableDataOffset = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
-            TableDataCount = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
-            if (TableDataOffset != 0)
+            OperandDescriptorTableOffset = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
+            OperandDescriptorTableCount = BitConverter.ToInt32(endianConvert.Convert(br.ReadBytes(4)), 0);
+            if (OperandDescriptorTableOffset != 0)
             {
                 long CurrentPos = br.BaseStream.Position;
 
                 //Move DVLP Header
                 br.BaseStream.Position = DVLPPos;
 
-                br.BaseStream.Seek(TableDataOffset, SeekOrigin.Current);
+                br.BaseStream.Seek(OperandDescriptorTableOffset, SeekOrigin.Current);
 
-                for (int i = 0; i < TableDataCount; i++)
+                for (int i = 0; i < OperandDescriptorTableCount; i++)
                 {
-                    Table table = new Table();
-                    table.ReadTableData(br, BOM);
-                    Tables.Add(table);
+                    OperandDescriptorTable operandDescriptorTable = new OperandDescriptorTable();
+                    operandDescriptorTable.ReadTableData(br, BOM);
+                    OperandDescriptorTables.Add(operandDescriptorTable);
                 }
 
                 //Leave Position
@@ -333,7 +323,7 @@ namespace DVLBLibrary
         public void WriteDVLP(BinaryWriter bw, byte[] BOM)
         {
             bw.Write(DVLP_Header);
-            bw.Write(UnkByte1);
+            bw.Write(Version);
 
             //...
         }
@@ -341,14 +331,14 @@ namespace DVLBLibrary
         public DVLP()
         {
             DVLP_Header = "DVLP".ToCharArray();
-            UnkByte1 = new byte[4];
-            UnknownDataOffset0 = 0;
-            DVLP_UnknownDataCount = 0;
-            UnknownDataList = new List<UnknownData>();
+            Version = new byte[4];
+            CompiledShaderBinaryBlobOffset = 0;
+            CompiledShaderBinaryBlobCount = 0;
+            CompiledShaderBinaryBlobList = new List<CompiledShaderBinaryBlob>();
 
-            TableDataOffset = 0;
-            TableDataCount = 0;
-            Tables = new List<Table>();
+            OperandDescriptorTableOffset = 0;
+            OperandDescriptorTableCount = 0;
+            OperandDescriptorTables = new List<OperandDescriptorTable>();
 
             NameData = new DVLP_NameData();
         }

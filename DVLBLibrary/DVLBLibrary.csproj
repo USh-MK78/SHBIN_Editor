@@ -46,8 +46,10 @@
     <Compile Include="DVLE.cs" />
     <Compile Include="DVLP.cs" />
     <Compile Include="EndianConvert.cs" />
+    <Compile Include="EnumData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ReadByteLine.cs" />
+    <Compile Include="StructData.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
